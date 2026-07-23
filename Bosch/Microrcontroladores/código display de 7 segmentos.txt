@@ -1,0 +1,86 @@
+int flag_1 = 0;
+int flag_2 = 0;
+
+int i1 = 2;   
+int i2 = 8;  
+
+volatile unsigned long tempo1 = 0;
+volatile unsigned long tempo2 = 0;
+
+void setup() {
+
+    Serial.begin(9600);
+
+    for (int p = 2; p <= 13; p++)
+        pinMode(p, OUTPUT);
+
+    pinMode(A0, INPUT_PULLUP);
+    pinMode(A1, INPUT_PULLUP);
+
+    PCICR |= (1 << PCIE1);
+    PCMSK1 |= (1 << PCINT8) | (1 << PCINT9);
+
+    TCCR0A = (1 << WGM01);
+    TCCR0B = (1 << CS02);      
+    OCR0A = 62;
+    TIMSK0 |= (1 << OCIE0A);
+
+    sei();
+}
+
+void loop() {
+
+}
+
+ISR(PCINT1_vect) {
+
+    if (digitalRead(A0) == LOW)
+        flag_1 = !flag_1;
+
+    if (digitalRead(A1) == LOW)
+        flag_2 = !flag_2;
+}
+
+ISR(TIMER0_COMPA_vect) {
+
+    tempo1++;
+    tempo2++;
+
+    if (tempo1 == 400)
+        digitalWrite(i1, HIGH);
+
+    else if (tempo1 >= 800) {
+
+        digitalWrite(i1, LOW);
+        tempo1 = 0;
+
+        if (flag_1 == 0) {
+            i1++;
+            if (i1 > 7)
+                i1 = 2;
+        } else {
+            i1--;
+            if (i1 < 2)
+                i1 = 7;
+        }
+    }
+
+    if (tempo2 == 400)
+        digitalWrite(i2, HIGH);
+
+    else if (tempo2 >= 800) {
+
+        digitalWrite(i2, LOW);
+        tempo2 = 0;
+
+        if (flag_2 == 0) {
+            i2++;
+            if (i2 > 13)
+                i2 = 8;
+        } else {
+            i2--;
+            if (i2 < 8)
+                i2 = 13;
+        }
+    }
+}

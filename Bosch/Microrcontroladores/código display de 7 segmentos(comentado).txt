@@ -1,0 +1,192 @@
+// Variáveis que armazenam o sentido de rotação dos LEDs.
+// flag_1 controla os LEDs dos pinos 2 a 7.
+// flag_2 controla os LEDs dos pinos 8 a 13.
+// 0 = sentido crescente
+// 1 = sentido decrescente
+int flag_1 = 0;
+int flag_2 = 0;
+
+// Variáveis que armazenam qual LED está sendo controlado no momento.
+// O primeiro grupo começa no pino 2.
+// O segundo grupo começa no pino 8.
+int i1 = 2;
+int i2 = 8;
+
+// Contadores de tempo utilizados pela interrupção do Timer.
+// "volatile" informa ao compilador que essas variáveis podem ser alteradas
+// por uma rotina de interrupção, evitando otimizações incorretas.
+volatile unsigned long tempo1 = 0;
+volatile unsigned long tempo2 = 0;
+
+void setup() {
+
+    // Inicializa a comunicação serial em 9600 bps.
+    // Neste código ela não está sendo utilizada,
+    // mas pode servir para testes e depuração.
+    Serial.begin(9600);
+
+    // Configura todos os pinos digitais de 2 até 13 como saída.
+    // Eles serão utilizados para acionar os LEDs.
+    for (int p = 2; p <= 13; p++)
+        pinMode(p, OUTPUT);
+
+    // Configura os botões ligados aos pinos analógicos A0 e A1.
+    // INPUT_PULLUP ativa o resistor interno de pull-up.
+    // Assim:
+    // Botão solto  -> HIGH
+    // Botão pressionado -> LOW
+    pinMode(A0, INPUT_PULLUP);
+    pinMode(A1, INPUT_PULLUP);
+
+    // Habilita interrupções por mudança de estado
+    // para o grupo dos pinos analógicos (PORTC).
+    PCICR |= (1 << PCIE1);
+
+    // Ativa especificamente as interrupções
+    // para os pinos A0 (PCINT8) e A1 (PCINT9).
+    PCMSK1 |= (1 << PCINT8) | (1 << PCINT9);
+
+    // ---------------- CONFIGURAÇÃO DO TIMER 0 ----------------
+
+    // Coloca o Timer0 em modo CTC (Clear Timer on Compare Match).
+    // Nesse modo o contador é zerado quando atinge OCR0A.
+    TCCR0A = (1 << WGM01);
+
+    // Define o prescaler como 256.
+    // O timer passa a contar mais lentamente.
+    TCCR0B = (1 << CS02);
+
+    // Valor de comparação.
+    // Quando TCNT0 chegar em 62 ocorrerá a interrupção.
+    OCR0A = 62;
+
+    // Habilita a interrupção do Compare Match A.
+    TIMSK0 |= (1 << OCIE0A);
+
+    // Habilita todas as interrupções globais.
+    sei();
+}
+
+void loop() {
+
+    // O loop principal fica vazio porque todo o funcionamento
+    // do programa acontece através das interrupções.
+}
+
+//////////////////////////////////////////////////////////////
+// INTERRUPÇÃO DOS BOTÕES
+//////////////////////////////////////////////////////////////
+
+ISR(PCINT1_vect) {
+
+    // Sempre que houver mudança de estado em A0 ou A1
+    // esta rotina será executada.
+
+    // Se o botão A0 estiver pressionado (LOW),
+    // inverte o valor da flag.
+    // Se era 0 passa para 1.
+    // Se era 1 passa para 0.
+    if (digitalRead(A0) == LOW)
+        flag_1 = !flag_1;
+
+    // Faz o mesmo para o botão A1.
+    if (digitalRead(A1) == LOW)
+        flag_2 = !flag_2;
+}
+
+//////////////////////////////////////////////////////////////
+// INTERRUPÇÃO DO TIMER
+//////////////////////////////////////////////////////////////
+
+ISR(TIMER0_COMPA_vect) {
+
+    // A cada interrupção do timer,
+    // incrementa os dois contadores.
+    tempo1++;
+    tempo2++;
+
+    //////////////////////////////////////////////////////////
+    // CONTROLE DOS LEDS DO GRUPO 1 (Pinos 2 a 7)
+    //////////////////////////////////////////////////////////
+
+    // Após 400 interrupções,
+    // liga o LED atual.
+    if (tempo1 == 400)
+        digitalWrite(i1, HIGH);
+
+    // Após 800 interrupções,
+    // desliga o LED atual.
+    else if (tempo1 >= 800) {
+
+        digitalWrite(i1, LOW);
+
+        // Reinicia a contagem.
+        tempo1 = 0;
+
+        // Verifica o sentido da sequência.
+
+        // Sentido crescente
+        if (flag_1 == 0) {
+
+            // Vai para o próximo LED.
+            i1++;
+
+            // Se ultrapassar o último LED (7),
+            // volta para o primeiro (2).
+            if (i1 > 7)
+                i1 = 2;
+        }
+
+        // Sentido decrescente
+        else {
+
+            // Vai para o LED anterior.
+            i1--;
+
+            // Se passar do primeiro LED,
+            // retorna ao último.
+            if (i1 < 2)
+                i1 = 7;
+        }
+    }
+
+    //////////////////////////////////////////////////////////
+    // CONTROLE DOS LEDS DO GRUPO 2 (Pinos 8 a 13)
+    //////////////////////////////////////////////////////////
+
+    // Liga o LED após 400 interrupções.
+    if (tempo2 == 400)
+        digitalWrite(i2, HIGH);
+
+    // Após 800 interrupções,
+    // desliga o LED e troca para o próximo.
+    else if (tempo2 >= 800) {
+
+        digitalWrite(i2, LOW);
+
+        // Reinicia o contador.
+        tempo2 = 0;
+
+        // Sentido crescente
+        if (flag_2 == 0) {
+
+            i2++;
+
+            // Se passar do último LED,
+            // volta ao primeiro.
+            if (i2 > 13)
+                i2 = 8;
+        }
+
+        // Sentido decrescente
+        else {
+
+            i2--;
+
+            // Se passar do primeiro,
+            // volta ao último.
+            if (i2 < 8)
+                i2 = 13;
+        }
+    }
+}

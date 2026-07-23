@@ -1,0 +1,81 @@
+int flag_1 = 0;
+int flag_2 = 0;
+int i = 2;
+unsigned long tempo = 0;
+
+void setup() {
+
+    Serial.begin (9600);
+    pinMode(2,  OUTPUT);
+    pinMode(3,  OUTPUT);
+    pinMode(4,  OUTPUT);
+    pinMode(5,  OUTPUT);
+    pinMode(6,  OUTPUT);
+    pinMode(7,  OUTPUT);
+    pinMode(8,  OUTPUT);
+    pinMode(9,  OUTPUT);
+    pinMode(10, OUTPUT);
+    pinMode(11, OUTPUT);
+    pinMode(12, OUTPUT);
+    pinMode(13, OUTPUT);
+    pinMode(14, INPUT_PULLUP);
+    pinMode(15, INPUT_PULLUP);  
+  
+  PORTC = (0x01 << PINC0) | (0x01 << PINC1);
+  PCICR = (0x01 << PCIE1);
+  PCMSK1 = (0x01 << PINC0) | (0x01 << PINC1);
+
+  TCCR0A = (1 << WGM01);                           // Modo de contagem normal - Timer0
+  TCCR0B = (1 << CS02);                            // Prescaler para 256 - Timer0
+  OCR0A = 62;                                      // Valor de compara  o para 1ms - Timer0
+  TIMSK0 |= (1 << OCIE0A);                         // Habilita a interrup  o do Timer0
+
+  sei();
+}
+
+void loop() {
+	
+}
+
+  ISR(PCINT1_vect){ 
+    if (digitalRead(14)){ //pino A0 <---
+      flag_1 = !flag_1;
+    }
+  }
+
+  ISR(PCINT2_vect){ 
+    if (digitalRead(15)){ //pino A1 <---
+      flag_2 = !flag_2;
+    }
+  }
+
+
+  ISR(TIMER0_COMPA_vect) {
+    tempo++;
+  	if (flag_1 == 0) {
+    	if (tempo == 400) {
+      		digitalWrite(i, HIGH); 
+    } 
+        else if (tempo >= 800) {
+          digitalWrite(i, LOW);  
+          tempo = 0;
+          if (i >= 7){
+			i = 1;
+          }
+          i++;
+        }
+    }
+      if (flag_1 == 1) {
+    	if (tempo == 400) {
+      		digitalWrite(i, HIGH); 
+    } 
+        else if (tempo >= 800) {
+          digitalWrite(i, LOW);  
+          tempo = 0;
+          if (i <= 2){
+			i = 8;
+          }
+          i--;
+        }
+    }  
+  }
